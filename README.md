@@ -160,20 +160,6 @@ Common issues:
 - No price found: confirm that the URL belongs to a supported store and inspect the store's current HTML selectors.
 - No alert appears: remember that the scheduler runs every minute and the product is checked only after its configured interval has elapsed.
 
-## Portfolio Notes
-
-This project demonstrates a complete small automation workflow:
-
-- asynchronous Telegram interaction;
-- finite-state conversational input;
-- asynchronous persistence;
-- scheduled background jobs;
-- site-specific scraping;
-- validation and user-level data ownership;
-- environment-based configuration.
-
-For a production client project, the next upgrades would typically include a hosted database, deployment with process supervision, structured logging, retry and rate-limit handling, monitoring, automated tests, and an admin interface.
-
 ## License
 
 This project is provided as a portfolio and learning example. Add a license file before distributing it as a reusable product.
