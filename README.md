@@ -1,80 +1,103 @@
 # Smart Monitor Bot
 
-Smart Monitor is a Telegram price-tracking bot built as a practical automation project. Users save product URLs, set a target price, choose an individual checking interval, and receive a Telegram alert when the price reaches their target.
+Telegram bot for automated product price monitoring and price-drop alerts.
 
-The project is suitable as a portfolio example for freelance automation work, Telegram bots, web scraping, and lightweight data-driven services.
+Users can save product URLs, set a target price, choose an individual checking interval, view price history, and receive a Telegram notification when the target price is reached.
+
+Built as a practical automation project demonstrating Python, Telegram bots, web scraping, asynchronous programming, SQLAlchemy, APScheduler, and Docker.
 
 ## Features
 
-- Telegram bot interface with `/start`, `/add`, `/list`, `/delete`, and `/cancel` commands.
-- Button-based navigation for the main user actions.
-- Guided multi-step flow for adding a tracked product.
-- URL, target-price, interval, and item-ID validation.
-- Product price scraping with `curl_cffi` and BeautifulSoup.
-- Store-specific selectors for Rozetka, Epicentr, Amazon, eBay, and Books to Scrape.
-- SQLite persistence through SQLAlchemy and `aiosqlite`.
-- Separate tracking intervals per product.
-- Persistent price history with a `/history` command.
-- Scheduled background checks through APScheduler.
-- Price-drop alerts with a direct product link.
-- User-isolated item lists and deletion.
-- Local secrets through a `.env` file.
+* Telegram bot interface with `/start`, `/add`, `/list`, `/history`, `/delete`, and `/cancel` commands.
+* Button-based navigation for common actions.
+* Guided multi-step flow for adding tracked products.
+* URL, target-price, interval, and item-ID validation.
+* Product price scraping with `curl_cffi` and BeautifulSoup.
+* Store-specific price extraction for Rozetka, Epicentr, Amazon, eBay, and Books to Scrape.
+* SQLite persistence through SQLAlchemy and `aiosqlite`.
+* Separate monitoring intervals for each product.
+* Persistent price history.
+* `/history` command for viewing recent price changes.
+* Scheduled background checks with APScheduler.
+* Price-drop alerts with a direct product link.
+* User-isolated tracked products.
+* Environment-based configuration with `.env`.
+* Docker and Docker Compose support.
 
 ## How It Works
 
-1. A user starts the bot and chooses **Add Item**.
-2. The bot asks for a product URL, target price, and check interval in minutes.
-3. The scraper attempts to read the current price.
-4. The product and its monitoring settings are saved in `monitor.db`.
-5. APScheduler wakes up every minute and checks only products whose individual interval has elapsed.
-6. When a current price is at or below the target price, the bot sends an alert.
+1. The user starts the bot and selects **Add Item**.
+2. The bot requests a product URL, target price, and checking interval in minutes.
+3. The scraper attempts to retrieve the current product price.
+4. The product and monitoring settings are stored in SQLite.
+5. APScheduler runs a background job every minute.
+6. Each tracked product is checked only when its individual interval has elapsed.
+7. The current price is stored in the price history.
+8. If the price reaches or falls below the target price, the bot sends a Telegram notification.
 
-The scheduler runs once per minute, while each item controls its own effective frequency. For example, an item configured for 60 minutes is checked when its last check is at least one hour old.
+For example, a product configured with a `60` minute interval will be checked when at least one hour has passed since its previous check.
 
 ## Project Structure
 
 ```text
-Smart Monitor/
-├── main.py                         # Local launcher
-├── smart_monitor/                  # Application package
-│   ├── main.py                     # Application entry point
-│   ├── models.py                   # SQLAlchemy data models
-│   ├── bot/handlers.py             # Telegram commands and FSM flows
-│   └── services/                   # Scraper and scheduler
-├── requirements.txt                # Runtime dependencies
-├── .env                            # Local bot token, not committed
-├── monitor.db                      # Local SQLite database, not committed
-├── .env.example                    # Configuration template
-├── Dockerfile                      # Container image definition
-├── docker-compose.yml              # Local/host deployment definition
-└── .dockerignore                   # Build context exclusions
+smart-monitor-bot/
+├── main.py
+├── smart_monitor/
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── models.py
+│   ├── bot/
+│   │   └── handlers.py
+│   └── services/
+│       ├── scraper.py
+│       └── scheduler.py
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
 ```
+
+## Tech Stack
+
+* Python 3.10+
+* aiogram — Telegram Bot API framework
+* SQLAlchemy — database ORM
+* aiosqlite — asynchronous SQLite driver
+* APScheduler — background scheduled jobs
+* BeautifulSoup — HTML parsing
+* curl_cffi — HTTP requests with browser-like TLS fingerprints
+* SQLite — local persistence
+* Docker / Docker Compose — containerized deployment
 
 ## Requirements
 
-- Python 3.10 or newer
-- A Telegram bot token from [BotFather](https://t.me/BotFather)
-- Internet access for Telegram API calls and product-page requests
+* Python 3.10 or newer
+* Telegram bot token from BotFather
+* Internet connection for Telegram API and product-page requests
 
 ## Installation
 
-### 1. Clone or download the project
+### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
-cd "Smart Monitor"
+git clone https://github.com/Denius88/smart-monitor-bot.git
+cd smart-monitor-bot
 ```
 
 ### 2. Create a virtual environment
 
-macOS/Linux:
+#### macOS / Linux
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Windows PowerShell:
+#### Windows PowerShell
 
 ```powershell
 py -m venv .venv
@@ -88,9 +111,11 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 4. Configure the bot token
+### 4. Configure environment variables
 
-Create a file named `.env` in the project root:
+Create a `.env` file in the project root.
+
+Use `.env.example` as a template:
 
 ```env
 BOT_TOKEN=your_telegram_bot_token_here
@@ -98,7 +123,9 @@ DATABASE_URL=sqlite+aiosqlite:///./monitor.db
 LOG_LEVEL=INFO
 ```
 
-Never commit the real token. The repository ignores `.env`, `monitor.db`, and Python cache folders.
+Never commit the real Telegram bot token.
+
+The repository ignores `.env`, SQLite databases, Python cache files, and other local development files.
 
 ### 5. Start the bot
 
@@ -106,101 +133,239 @@ Never commit the real token. The repository ignores `.env`, `monitor.db`, and Py
 python main.py
 ```
 
-On first startup, the application creates the local SQLite database and starts the background scheduler. Keep the process running while you want price monitoring to continue.
+On the first startup, the application creates the SQLite database and starts the background scheduler.
+
+Keep the process running while price monitoring is required.
 
 ## Bot Usage
 
-### Add a product
+### Add a Product
 
-Use **Add Item** or `/add`, then provide:
+Use **Add Item** or `/add`.
 
-1. A supported product URL.
-2. The target price, such as `500` or `1500.50`.
-3. The check interval in minutes, such as `15`, `60`, or `1440`.
+The bot will ask for:
 
-### View tracked products
+1. Supported product URL
+2. Target price
+3. Checking interval in minutes
 
-Use **My Items** or `/list` to see item IDs, URLs, current prices, target prices, and monitoring intervals.
+### View Tracked Products
 
-### View price history
+Use **My Items** or `/list`.
 
-Use **Price History** or `/history` to see the latest five recorded prices for each tracked item.
+The bot displays:
 
-### Delete a product
+* Item ID
+* Product URL
+* Current price
+* Target price
+* Monitoring interval
 
-Use **Delete Item** or `/delete`, then send the item ID shown by `/list`.
+### View Price History
 
-### Cancel an action
+Use **Price History** or `/history`.
 
-Use **Cancel** or `/cancel` during any multi-step flow.
+The bot displays the latest recorded prices for tracked products.
+
+### Delete a Product
+
+Use **Delete Item** or `/delete`.
+
+Enter the item ID displayed by `/list`.
+
+Users can delete only their own tracked products.
+
+### Cancel an Action
+
+Use **Cancel** or `/cancel` during a multi-step interaction.
 
 ## Supported Price Extraction
 
-The scraper currently uses known CSS selectors for a small set of sites. A page can still be reachable while returning no price if its markup has changed, the product is unavailable, or the site blocks automated requests. In that case, the item remains saved and the next scheduled check can try again.
+The scraper currently supports a small set of stores using store-specific CSS selectors:
 
-To add another store, extend `extract_price()` in `smart_monitor/services/scraper.py` with the store domain and its current price selector.
+* Rozetka
+* Epicentr
+* Amazon
+* eBay
+* Books to Scrape
+
+A page may still be reachable while returning no price.
+
+Possible reasons include:
+
+* Changed page markup
+* Product unavailable
+* Store-side anti-bot protection
+* Changed CSS selectors
+* Temporary network problems
+
+In this case, the tracked item remains saved and a future scheduled check can try again.
+
+### Adding Another Store
+
+To add support for another store, extend the price extraction logic in:
+
+`smart_monitor/services/scraper.py`
+
+Add the store domain and the appropriate price selector.
+
+## Price History
+
+Successful price observations are stored in the `PriceHistory` table.
+
+This allows the bot to retain previous prices instead of storing only the latest value.
+
+The history can be accessed through `/history`.
+
+The current implementation displays the latest five recorded prices for each tracked item.
 
 ## Data Model
 
-- `User` stores the Telegram user ID and username.
-- `TrackedItem` stores the owner, URL, current price, target price, check interval, and last-check timestamp.
-- `PriceHistory` stores successful price observations linked to a tracked item.
-- The SQLite database is created locally as `monitor.db`.
-- Database records are intentionally local for this sample project. A production deployment could use PostgreSQL, migrations, backups, and encrypted infrastructure.
+### User
 
-## Validation and Troubleshooting
+Stores Telegram user information.
 
-Compile all modules:
+### TrackedItem
 
-```bash
-python -m py_compile main.py smart_monitor/main.py smart_monitor/models.py smart_monitor/config.py smart_monitor/database.py smart_monitor/bot/*.py smart_monitor/services/*.py
+Stores:
+
+* Owner
+* Product URL
+* Current price
+* Target price
+* Checking interval
+* Last-check timestamp
+
+### PriceHistory
+
+Stores successful price observations associated with a tracked product.
+
+The default database is a local SQLite file:
+
+`monitor.db`
+
+For a production deployment, SQLite could be replaced with PostgreSQL together with migrations, backups, and proper infrastructure.
+
+## Scheduler
+
+APScheduler runs the monitoring process in the background.
+
+The scheduler wakes up once per minute and determines which products are due for another check.
+
+Each product has its own monitoring interval.
+
+This allows different products to be monitored at different frequencies without creating a separate scheduler job for every item.
+
+## Validation and Error Handling
+
+The bot validates:
+
+* Product URLs
+* Supported domains
+* Target prices
+* Checking intervals
+* Product IDs
+* User ownership
+
+### `BOT_TOKEN is missing`
+
+Check that `.env` exists in the project root and contains:
+
+```env
+BOT_TOKEN=your_telegram_bot_token_here
 ```
 
-Check that imports resolve without starting polling:
+### `ModuleNotFoundError`
+
+Make sure the virtual environment is active and dependencies are installed:
 
 ```bash
-python -c "import main; print('Application import: OK')"
+python -m pip install -r requirements.txt
 ```
 
-Common issues:
+### No price found
 
-- `BOT_TOKEN is missing`: verify that `.env` is in the project root and contains `BOT_TOKEN=...`.
-- `ModuleNotFoundError`: activate the virtual environment and install `requirements.txt`.
-- No price found: confirm that the URL belongs to a supported store and inspect the store's current HTML selectors.
-- No alert appears: remember that the scheduler runs every minute and the product is checked only after its configured interval has elapsed.
+Check that the URL belongs to a supported store.
+
+The store's HTML structure or price selector may have changed.
+
+### No alert appears
+
+The scheduler runs every minute, but an individual product is checked only after its configured interval has elapsed.
 
 ## Docker
 
-Create `.env` from `.env.example`, add your Telegram token, and run:
+The project can also be run using Docker Compose.
+
+### 1. Configure environment
+
+Create `.env` from `.env.example` and add your Telegram bot token.
+
+### 2. Build and start
 
 ```bash
 docker compose up -d --build
 ```
 
-View logs:
+### 3. View logs
 
 ```bash
 docker compose logs -f smart-monitor
 ```
 
-Stop the service:
+### 4. Stop the service
 
 ```bash
 docker compose down
 ```
 
-This project demonstrates a complete small automation workflow:
+## Validation
 
-- asynchronous Telegram interaction;
-- finite-state conversational input;
-- asynchronous persistence;
-- scheduled background jobs;
-- site-specific scraping;
-- validation and user-level data ownership;
-- environment-based configuration.
+Compile the application modules:
 
-For a production client project, the next upgrades would typically include a hosted database, deployment with process supervision, structured logging, retry and rate-limit handling, monitoring, automated tests, and an admin interface.
+```bash
+python -m py_compile main.py smart_monitor/main.py smart_monitor/models.py smart_monitor/config.py smart_monitor/database.py smart_monitor/bot/*.py smart_monitor/services/*.py
+```
+
+Check that the application imports successfully:
+
+```bash
+python -c "import main; print('Application import: OK')"
+```
+
+## What This Project Demonstrates
+
+This project demonstrates a complete small-scale automation workflow:
+
+* Asynchronous Telegram bot development
+* Finite-state conversational input
+* Web scraping
+* Store-specific parsing
+* Asynchronous database operations
+* SQLAlchemy ORM
+* Background scheduled jobs
+* Persistent price history
+* Input validation
+* User-level data ownership
+* Environment-based configuration
+* Docker-based deployment
+
+## Possible Production Improvements
+
+For a production client deployment, the system could be extended with:
+
+* PostgreSQL
+* Database migrations
+* Retry and rate-limit handling
+* Structured logging
+* Automated tests
+* Monitoring and health checks
+* Admin interface
+* More store integrations
+* Proxy rotation where appropriate
+* Deployment with process supervision
+* Metrics and alerting
 
 ## License
 
-This project is provided as a portfolio and learning example. Add a license file before distributing it as a reusable product.
+MIT License. See `LICENSE` for details.
