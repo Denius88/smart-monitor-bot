@@ -1,6 +1,7 @@
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import List, Optional
+from datetime import datetime, timezone
 
 class Base(DeclarativeBase):
     pass
@@ -25,5 +26,8 @@ class TrackedItem(Base):
     title: Mapped[Optional[str]]
     current_price: Mapped[Optional[float]]
     target_price: Mapped[float]
+    
+    check_interval: Mapped[int] = mapped_column(default=60)
+    last_checked: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     
     user: Mapped["User"] = relationship(back_populates="items")

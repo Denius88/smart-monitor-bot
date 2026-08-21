@@ -1,10 +1,18 @@
 import asyncio
 import logging
+import sys
+from pathlib import Path
+
 from aiogram import Bot, Dispatcher
+
+project_root = Path(__file__).resolve().parent
+sys.path.insert(0, str(project_root / "Main Functionality"))
+sys.path.insert(0, str(project_root / "Bot Functionality"))
 
 from config import BOT_TOKEN
 from database import init_db
-from handlers import router
+import handlers
+import scheduler 
 
 async def main():
     logging.basicConfig(level=logging.INFO)
@@ -14,7 +22,12 @@ async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
     
-    dp.include_router(router)
+    dp.include_router(handlers.router)
+
+    sched = scheduler.setup_scheduler(bot)
+    sched.start()
+    print("⏳ The task planner is up and running!")
+
     
     print("🚀 Bot is starting...")
     await dp.start_polling(bot)

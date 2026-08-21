@@ -4,12 +4,10 @@ import re
 import logging
 from typing import Optional
 
-# Setup basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def fetch_html(url: str) -> Optional[str]:
-    """Fetch HTML bypassing Cloudflare using curl_cffi."""
     try:
         async with AsyncSession(impersonate="chrome120") as session:
             response = await session.get(url, timeout=15)
@@ -24,7 +22,6 @@ async def fetch_html(url: str) -> Optional[str]:
         return None
 
 def extract_price(html: str, domain: str) -> Optional[float]:
-    """Parse HTML and extract the price based on website-specific logic."""
     soup = BeautifulSoup(html, "html.parser")
     
     try:
@@ -58,11 +55,19 @@ def extract_price(html: str, domain: str) -> Optional[float]:
         if not price_text:
             return None
             
-        if ',' in price_text and '.' in price_text:
-            price_text = price_text.replace(',', '')
-        elif ',' in price_text and '.' not in price_text:
-            price_text = price_text.replace(',', '.')
-            
+        price_text = price_text.replace("\xa0", "").replace(" ", "")
+        last_comma = price_text.rfind(",")
+        last_dot = price_text.rfind(".")
+
+        if last_comma != -1 and last_dot != -1:
+            if last_comma > last_dot:
+                price_text = price_text.replace(".", "").replace(",", ".")
+            else:
+                price_text = price_text.replace(",", "")
+        elif last_comma != -1:
+            fractional_digits = len(price_text) - last_comma - 1
+            price_text = price_text.replace(",", "." if fractional_digits in (1, 2) else "")
+
         clean_text = re.sub(r'[^\d.]', '', price_text)
         
         return float(clean_text)
@@ -73,7 +78,6 @@ def extract_price(html: str, domain: str) -> Optional[float]:
     return None
 
 async def check_price(url: str) -> Optional[float]:
-    """Main entry point to get the current price from a URL."""
     html = await fetch_html(url)
     if not html:
         return None
