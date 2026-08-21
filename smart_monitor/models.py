@@ -29,5 +29,18 @@ class TrackedItem(Base):
     
     check_interval: Mapped[int] = mapped_column(default=60)
     last_checked: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
-    
+
     user: Mapped["User"] = relationship(back_populates="items")
+    price_history: Mapped[List["PriceHistory"]] = relationship(
+        back_populates="item", cascade="all, delete-orphan", order_by="PriceHistory.checked_at"
+    )
+
+class PriceHistory(Base):
+    __tablename__ = 'price_history'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tracked_item_id: Mapped[int] = mapped_column(ForeignKey("tracked_items.id"))
+    price: Mapped[float]
+    checked_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+    item: Mapped["TrackedItem"] = relationship(back_populates="price_history")

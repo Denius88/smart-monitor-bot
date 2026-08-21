@@ -14,6 +14,7 @@ The project is suitable as a portfolio example for freelance automation work, Te
 - Store-specific selectors for Rozetka, Epicentr, Amazon, eBay, and Books to Scrape.
 - SQLite persistence through SQLAlchemy and `aiosqlite`.
 - Separate tracking intervals per product.
+- Persistent price history with a `/history` command.
 - Scheduled background checks through APScheduler.
 - Price-drop alerts with a direct product link.
 - User-isolated item lists and deletion.
@@ -34,18 +35,19 @@ The scheduler runs once per minute, while each item controls its own effective f
 
 ```text
 Smart Monitor/
-├── main.py                         # Application entry point
-├── models.py                       # SQLAlchemy User and TrackedItem models
+├── main.py                         # Local launcher
+├── smart_monitor/                  # Application package
+│   ├── main.py                     # Application entry point
+│   ├── models.py                   # SQLAlchemy data models
+│   ├── bot/handlers.py             # Telegram commands and FSM flows
+│   └── services/                   # Scraper and scheduler
 ├── requirements.txt                # Runtime dependencies
 ├── .env                            # Local bot token, not committed
 ├── monitor.db                      # Local SQLite database, not committed
-├── Bot Functionality/
-│   └── handlers.py                 # Telegram commands, buttons, and FSM flows
-└── Main Functionality/
-	├── config.py                   # Environment configuration
-	├── database.py                 # Async database engine and initialization
-	├── scheduler.py                # Periodic price checks and alerts
-	└── scraper.py                  # HTTP fetching and price extraction
+├── .env.example                    # Configuration template
+├── Dockerfile                      # Container image definition
+├── docker-compose.yml              # Local/host deployment definition
+└── .dockerignore                   # Build context exclusions
 ```
 
 ## Requirements
@@ -92,6 +94,8 @@ Create a file named `.env` in the project root:
 
 ```env
 BOT_TOKEN=your_telegram_bot_token_here
+DATABASE_URL=sqlite+aiosqlite:///./monitor.db
+LOG_LEVEL=INFO
 ```
 
 Never commit the real token. The repository ignores `.env`, `monitor.db`, and Python cache folders.
@@ -118,6 +122,10 @@ Use **Add Item** or `/add`, then provide:
 
 Use **My Items** or `/list` to see item IDs, URLs, current prices, target prices, and monitoring intervals.
 
+### View price history
+
+Use **Price History** or `/history` to see the latest five recorded prices for each tracked item.
+
 ### Delete a product
 
 Use **Delete Item** or `/delete`, then send the item ID shown by `/list`.
@@ -130,12 +138,13 @@ Use **Cancel** or `/cancel` during any multi-step flow.
 
 The scraper currently uses known CSS selectors for a small set of sites. A page can still be reachable while returning no price if its markup has changed, the product is unavailable, or the site blocks automated requests. In that case, the item remains saved and the next scheduled check can try again.
 
-To add another store, extend `extract_price()` in `Main Functionality/scraper.py` with the store domain and its current price selector.
+To add another store, extend `extract_price()` in `smart_monitor/services/scraper.py` with the store domain and its current price selector.
 
 ## Data Model
 
 - `User` stores the Telegram user ID and username.
 - `TrackedItem` stores the owner, URL, current price, target price, check interval, and last-check timestamp.
+- `PriceHistory` stores successful price observations linked to a tracked item.
 - The SQLite database is created locally as `monitor.db`.
 - Database records are intentionally local for this sample project. A production deployment could use PostgreSQL, migrations, backups, and encrypted infrastructure.
 
@@ -144,7 +153,7 @@ To add another store, extend `extract_price()` in `Main Functionality/scraper.py
 Compile all modules:
 
 ```bash
-python -m py_compile main.py models.py "Main Functionality"/*.py "Bot Functionality"/*.py
+python -m py_compile main.py smart_monitor/main.py smart_monitor/models.py smart_monitor/config.py smart_monitor/database.py smart_monitor/bot/*.py smart_monitor/services/*.py
 ```
 
 Check that imports resolve without starting polling:
@@ -159,6 +168,40 @@ Common issues:
 - `ModuleNotFoundError`: activate the virtual environment and install `requirements.txt`.
 - No price found: confirm that the URL belongs to a supported store and inspect the store's current HTML selectors.
 - No alert appears: remember that the scheduler runs every minute and the product is checked only after its configured interval has elapsed.
+
+## Docker
+
+Create `.env` from `.env.example`, add your Telegram token, and run:
+
+```bash
+docker compose up -d --build
+```
+
+View logs:
+
+```bash
+docker compose logs -f smart-monitor
+```
+
+Stop the service:
+
+```bash
+docker compose down
+```
+
+## Portfolio Notes
+
+This project demonstrates a complete small automation workflow:
+
+- asynchronous Telegram interaction;
+- finite-state conversational input;
+- asynchronous persistence;
+- scheduled background jobs;
+- site-specific scraping;
+- validation and user-level data ownership;
+- environment-based configuration.
+
+For a production client project, the next upgrades would typically include a hosted database, deployment with process supervision, structured logging, retry and rate-limit handling, monitoring, automated tests, and an admin interface.
 
 ## License
 

@@ -1,0 +1,11 @@
+services:
+  smart-monitor:
+    build: .
+    container_name: smart-monitor
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////app/data/monitor.db
+    volumes:
+      - ./data:/app/data

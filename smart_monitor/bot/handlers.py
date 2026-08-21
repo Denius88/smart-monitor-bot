@@ -5,16 +5,16 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy.future import select
 
-from database import AsyncSessionLocal
-from models import User, TrackedItem
-from scraper import check_price
+from ..database import AsyncSessionLocal
+from ..models import PriceHistory, User, TrackedItem
+from ..services.scraper import check_price
 
 router = Router()
 
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="➕ Add Item"), KeyboardButton(text="📋 My Items")],
-        [KeyboardButton(text="🗑 Delete Item")]
+        [KeyboardButton(text="📈 Price History"), KeyboardButton(text="🗑 Delete Item")]
     ],
     resize_keyboard=True,
     input_field_placeholder="Choose an action below..."
@@ -114,6 +114,9 @@ async def process_interval(message: Message, state: FSMContext):
             check_interval=interval
         )
         session.add(new_item)
+        await session.flush()
+        if current_price is not None:
+            session.add(PriceHistory(tracked_item_id=new_item.id, price=current_price))
         await session.commit()
 
     price_msg = f"💵 Current price: {current_price}" if current_price else "Could not fetch current price right now."
@@ -147,6 +150,42 @@ async def cmd_list(message: Message, state: FSMContext):
         text += f"🆔 ID: {item.id}\n🔗 URL: {item.url}\n💵 Current: {curr} | 🎯 Target: {item.target_price}\n⏱ Checks every: {item.check_interval} mins\n\n"
 
     await message.answer(text, disable_web_page_preview=True, reply_markup=main_kb)
+
+@router.message(Command("history"))
+@router.message(F.text == "📈 Price History")
+async def cmd_history(message: Message, state: FSMContext):
+    await state.clear()
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(TrackedItem).where(TrackedItem.user_id == message.from_user.id)
+        )
+        items = result.scalars().all()
+
+        if not items:
+            await message.answer("📭 Your tracking list is empty.", reply_markup=main_kb)
+            return
+
+        text = "📈 <b>Recent Price History</b>\n\n"
+        for item in items:
+            history_result = await session.execute(
+                select(PriceHistory)
+                .where(PriceHistory.tracked_item_id == item.id)
+                .order_by(PriceHistory.checked_at.desc())
+                .limit(5)
+            )
+            history = history_result.scalars().all()
+            text += f"🆔 <b>Item {item.id}</b>\n🔗 {item.url}\n"
+            if history:
+                text += "\n".join(
+                    f"💵 {entry.price:.2f} — {entry.checked_at:%Y-%m-%d %H:%M} UTC"
+                    for entry in history
+                )
+            else:
+                text += "No recorded prices yet."
+            text += "\n\n"
+
+    await message.answer(text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=main_kb)
 
 @router.message(Command("delete"))
 @router.message(F.text == "🗑 Delete Item")

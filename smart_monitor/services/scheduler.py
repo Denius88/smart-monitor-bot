@@ -4,9 +4,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.future import select
 from aiogram import Bot
 
-from database import AsyncSessionLocal
-from models import TrackedItem
-from scraper import check_price
+from ..database import AsyncSessionLocal
+from ..models import PriceHistory, TrackedItem
+from .scraper import check_price
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,8 @@ async def check_all_prices(bot: Bot):
             
             if current_price is None:
                 continue
+
+            session.add(PriceHistory(tracked_item_id=item.id, price=current_price, checked_at=now))
                 
             if item.current_price != current_price:
                 item.current_price = current_price
