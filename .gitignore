@@ -2,5 +2,4 @@
 __pycache__/
 monitor.db
 data/
-
 .DS_Store
