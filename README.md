@@ -189,8 +189,6 @@ Stop the service:
 docker compose down
 ```
 
-## Portfolio Notes
-
 This project demonstrates a complete small automation workflow:
 
 - asynchronous Telegram interaction;
